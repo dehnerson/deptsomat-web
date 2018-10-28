@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import PropTypes from 'prop-types';
-import { db } from './fb';
+import { auth, db } from './fb';
+import DeptsBrokenDown from './DeptsBrokenDown';
 
 class Home extends Component {
   static propTypes = {
@@ -15,6 +16,7 @@ class Home extends Component {
   render() {
     return (
       <div>
+        <button onClick={this.handleLogout}>Sign Out</button>
         <h1>Home</h1>
         <p>{this.state.balanceTotal}</p>
         <ul>
@@ -36,14 +38,23 @@ class Home extends Component {
     const refDeptsBalance = db.ref('deptsBalance/' + this.props.currentUser.uid);
 
     refDeptsBalance.on('child_added', (balanceSnap) => {
-      db.ref('users/' + balanceSnap.key).once('value', (userSnap) => {
-        const user = userSnap.val();
-        const newDeptsSum = { userInvolved:{ uid:userSnap.key, name:user.firstName + ' ' + user.lastName }, amount:balanceSnap.val() };
+      if(balanceSnap.key.startsWith('_DYNAMIC_')) {
+        const newDeptsSum = { userInvolved:{ uid:balanceSnap.key, name:'Backe' }, amount:balanceSnap.val() };
 
         me.setState((prevState) => {
           return {deptsSums: prevState.deptsSums.concat(newDeptsSum)}
         });
-      });
+      }
+      else {
+        db.ref('users/' + balanceSnap.key).once('value', (userSnap) => {
+          const user = userSnap.val();
+          const newDeptsSum = { userInvolved:{ uid:userSnap.key, name:user.firstName + ' ' + user.lastName }, amount:balanceSnap.val() };
+
+          me.setState((prevState) => {
+            return {deptsSums: prevState.deptsSums.concat(newDeptsSum)}
+          });
+        });
+      }
     });
 
     refDeptsBalance.on('child_changed', (balanceSnap) => {
@@ -68,6 +79,12 @@ class Home extends Component {
         return {deptsSums: newDeptsSums};
       });
     });
+  }
+
+  handleLogout = (event) => {
+    event.preventDefault();
+
+    auth.signOut();
   }
 }
 
