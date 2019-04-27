@@ -1,65 +1,95 @@
 import React, { Component } from "react";
 import PropTypes from 'prop-types';
-import { auth, db } from './fb';
+import { db } from './fb';
+import Dept from './Dept';
+import Modal from 'react-bootstrap/lib/Modal';
+import { ListGroup, ListGroupItem } from 'react-bootstrap';
 
 class DeptsBrokenDown extends Component {
   static propTypes = {
     currentUser: PropTypes.object.isRequired,
-    userInvolved: PropTypes.object.isRequired
+    userInvolved: PropTypes.object.isRequired,
+    onCloseModal: PropTypes.func.isRequired
   }
 
   state = {
-    deptsBrokenDown: []
+    deptsBrokenDown: [],
+    clickedDeptId: null
   }
 
   render() {
     return (
-      <div>
-        <h1>DeptsBrokenDown</h1>
-        <ul>
-          {this.state.deptsBrokenDown.map((each) => (
-              <li key={each.userInvolved.uid}>{each.userInvolved.name}: {each.amount}</li>
-          ))}
-        </ul>
-      </div>
+      <Modal show={this.props.userInvolved != null} onHide={this.props.onCloseModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>DeptsBrokenDown</Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          <div>
+            <ListGroup>
+              {this.state.deptsBrokenDown.map((each) => (
+                <ListGroupItem key={each.deptKey} onClick={(e) => this.handleDeptsBrokenDownClick(e, each.deptKey)}
+                  header={each.amount}>{each.purpose}</ListGroupItem>
+              ))}
+            </ListGroup>
+
+            {this.state.clickedDeptId && (
+              <Dept deptId={this.state.clickedDeptId} onCloseModal={this.closeDeptModal}/>
+            )}
+          </div>
+        </Modal.Body>
+
+        <Modal.Footer>
+        </Modal.Footer>
+      </Modal>
     )
   }
 
   componentDidMount() {
+    this.subscribeData();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (this.props.userInvolved !== prevProps.userInvolved) {
+      this.unsubscribeData();
+      this.setState({deptsBrokenDown: []});
+
+      this.subscribeData();
+    }
+  }
+
+  componentWillUnmount() {
+    this.unsubscribeData();
+  }
+
+  subscribeData = () => {
     const me = this;
+    this.refDeptsBrokenDown = db.ref('deptsBrokenDown/' + this.props.currentUser.uid + '/' + this.props.userInvolved.uid);
 
-    const refDeptsBrokenDown = db.ref('deptsBrokenDown/' + this.props.currentUser.uid + '/' + this.props.userInvolved.uid);
+    this.refDeptsBrokenDown.on('value', (deptsBrokenDownSnap) => {
+      const values = [];
 
-    refDeptsBrokenDown.on('child_added', (deptBrokenDownSnap) => {
-      const newDeptBrokenDown = {deptKey: deptBrokenDownSnap.key, amount:deptBrokenDownSnap.val()};
-
-      me.setState((prevState) => {
-        return {deptsBrokenDown: prevState.deptsBrokenDown.concat(newDeptBrokenDown)}
+      deptsBrokenDownSnap.forEach((deptBrokenDownSnap) => {
+        values.push({deptKey: deptBrokenDownSnap.key, amount: deptBrokenDownSnap.child('amount').val(), purpose: deptBrokenDownSnap.child('purpose').val()});
       });
+
+      me.setState({deptsBrokenDown: values});
     });
+  }
 
-    refDeptsBrokenDown.on('child_changed', (deptBrokenDownSnap) => {
-      me.setState((prevState) => {
-        const deptsBrokenDown = prevState.deptsBrokenDown.find((element) => {
-          return element.deptKey === deptBrokenDownSnap.key;
-        });
+  unsubscribeData = () => {
+    if(this.refDeptsBrokenDown) {
+      this.refDeptsBrokenDown.off();
+    }
+  }
 
-        if(deptsBrokenDown) {
-          deptsBrokenDown.amount = deptBrokenDownSnap.val();
-          return {deptsBrokenDown: prevState.deptsBrokenDown};
-        }
-      });
-    });
+  handleDeptsBrokenDownClick = (event, deptId) => {
+    event.preventDefault();
+    this.setState({clickedDeptId: deptId});
+  }
 
-    refDeptsBrokenDown.on('child_removed', (deptBrokenDownSnap) => {
-      me.setState((prevState) => {
-        const newDeptsBrokenDown = prevState.deptsBrokenDown.filter((each) => {
-          return each.deptKey !== deptBrokenDownSnap.key;
-        });
-
-        return {deptsBrokenDown: newDeptsBrokenDown};
-      });
-    });
+  closeDeptModal = () => {
+    this.setState({clickedDeptId: null});
   }
 }
 

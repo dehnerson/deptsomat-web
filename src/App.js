@@ -1,10 +1,13 @@
 import React, { Component } from "react";
-import { BrowserRouter as Router, Route } from "react-router-dom";
+import { BrowserRouter as Router } from "react-router-dom";
 import PrivateRoute from './PrivateRoute';
+import SignedInRoute from './SignedInRoute';
+import './App.css';
 import { auth } from './fb';
 
 import Home from "./Home";
-import Login from "./Login";
+import DeptAdd from "./DeptAdd";
+import SignIn from "./SignIn";
 import SignUp from "./SignUp";
 
 class App extends Component {
@@ -19,8 +22,9 @@ class App extends Component {
       <Router>
         <div>
           <PrivateRoute exact path="/" component={Home} authenticated={this.state.authenticated} currentUser={this.state.currentUser}/>
-          <Route exact path="/login" component={Login} />
-          <Route exact path="/signup" component={SignUp} />
+          <PrivateRoute exact path="/addDept" component={DeptAdd} authenticated={this.state.authenticated} currentUser={this.state.currentUser}/>
+          <SignedInRoute exact path="/signIn" component={SignIn} authenticated={this.state.authenticated}/>
+          <SignedInRoute exact path="/signUp" component={SignUp} authenticated={this.state.authenticated}/>
         </div>
       </Router>
     );
